@@ -22,11 +22,8 @@ namespace SynonymSearchApp_ApplicationCore.Services
                 else if (SynonymData.ContainsKey(request.Key) && SynonymData.ContainsKey(request.Value))
                 {
                     //connect two sets case
-                    var unionList = new HashSet<string>(SynonymData[request.Value].Concat(SynonymData[request.Key]))
-                {
-                    request.Key,
-                    request.Value
-                };
+                    var unionList = new HashSet<string>(SynonymData[request.Value].Concat(SynonymData[request.Key])){ request.Key, request.Value };
+
                     foreach (var item in unionList)
                         SynonymData[item].UnionWith(unionList.Where(x => x != item));
                 }
@@ -34,20 +31,24 @@ namespace SynonymSearchApp_ApplicationCore.Services
                 {
                     //contains key does not contain value case
                     var modifyLists = new HashSet<string>(SynonymData[request.Key]);
+
                     foreach (var item in modifyLists)
                         SynonymData[item].Add(request.Value);
 
-                    SynonymData.Add(request.Value, SynonymData[request.Key]);
+                    SynonymData.Add(request.Value, modifyLists);
                     SynonymData[request.Key].Add(request.Value);
+                    SynonymData[request.Value].Add(request.Key);
                 }
                 else if (SynonymData.ContainsKey(request.Value) && !SynonymData.ContainsKey(request.Key))
                 {
                     //contains value does not contain key case
                     var modifyLists = new HashSet<string>(SynonymData[request.Value]);
+
                     foreach (var item in modifyLists)
                         SynonymData[item].Add(request.Key);
 
-                    SynonymData.Add(request.Key, SynonymData[request.Value]);
+                    SynonymData.Add(request.Key, modifyLists);
+                    SynonymData[request.Key].Add(request.Value);
                     SynonymData[request.Value].Add(request.Key);
                 }
                 else
