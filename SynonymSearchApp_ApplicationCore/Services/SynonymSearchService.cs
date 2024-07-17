@@ -1,77 +1,65 @@
 ﻿using SynonymSearchApp_ApplicationCore.IServices;
 using SynonymSearchApp_Domain.Models;
-using System.Text.Json.Nodes;
 
 namespace SynonymSearchApp_ApplicationCore.Services
 {
     public class SynonymSearchService : ISynonymSearchService
     {
-        private static Dictionary<string,HashSet<string>> SynonymData = new Dictionary<string, HashSet<string>>();
+        private static readonly Dictionary<string,HashSet<string>> SynonymData = [];
+        private static void ExpandHashsets(string existingKey, string newKey)
+        {
+            var modifyLists = new HashSet<string>(SynonymData[existingKey]);
+
+            foreach (var item in modifyLists)
+                SynonymData[item].Add(newKey);
+
+            SynonymData.Add(newKey, modifyLists);
+            SynonymData[existingKey].Add(newKey);
+            SynonymData[newKey].Add(existingKey);
+        }
         public Response AddSynonym(Synonym request)
         {
-            try
+            if (string.IsNullOrEmpty(request.Key) || string.IsNullOrEmpty(request.Value))
             {
-                if (string.IsNullOrEmpty(request.Key) || string.IsNullOrEmpty(request.Value))
-                {
-                    throw new ArgumentException("Values cannot be empty.");
-                }
-                else if (request.Key == request.Value)
-                {
-                    throw new ArgumentException("Values cannot be equal.");
-                }
-                else if (SynonymData.ContainsKey(request.Key) && SynonymData.ContainsKey(request.Value))
-                {
-                    //connect two sets case
-                    var unionList = new HashSet<string>(SynonymData[request.Value].Concat(SynonymData[request.Key])){ request.Key, request.Value };
-
-                    foreach (var item in unionList)
-                        SynonymData[item].UnionWith(unionList.Where(x => x != item));
-                }
-                else if (SynonymData.ContainsKey(request.Key) && !SynonymData.ContainsKey(request.Value))
-                {
-                    //contains key does not contain value case
-                    var modifyLists = new HashSet<string>(SynonymData[request.Key]);
-
-                    foreach (var item in modifyLists)
-                        SynonymData[item].Add(request.Value);
-
-                    SynonymData.Add(request.Value, modifyLists);
-                    SynonymData[request.Key].Add(request.Value);
-                    SynonymData[request.Value].Add(request.Key);
-                }
-                else if (SynonymData.ContainsKey(request.Value) && !SynonymData.ContainsKey(request.Key))
-                {
-                    //contains value does not contain key case
-                    var modifyLists = new HashSet<string>(SynonymData[request.Value]);
-
-                    foreach (var item in modifyLists)
-                        SynonymData[item].Add(request.Key);
-
-                    SynonymData.Add(request.Key, modifyLists);
-                    SynonymData[request.Key].Add(request.Value);
-                    SynonymData[request.Value].Add(request.Key);
-                }
-                else
-                {
-                    //completely new sets case
-                    SynonymData.Add(request.Key, new HashSet<string> { request.Value });
-                    SynonymData.Add(request.Value, new HashSet<string> { request.Key });
-                }
-
-                return new Response { Message = "Synonym successfully added!" };
+                throw new ArgumentException("Values cannot be empty.");
             }
-            catch(Exception ex)
+            else if (request.Key == request.Value)
             {
-                throw;
+                throw new ArgumentException("Values cannot be equal.");
+            }
+            if (SynonymData.TryGetValue(request.Key, out HashSet<string>? keyHashset) && SynonymData.TryGetValue(request.Value, out HashSet<string>? valueHashset))
+            {
+                //connect two sets case
+                var unionHashset = new HashSet<string>(keyHashset.Concat(valueHashset)){ request.Key, request.Value };
+
+                foreach (var item in unionHashset)
+                    SynonymData[item].UnionWith(unionHashset.Where(x => x != item));
+            }
+            else if (SynonymData.ContainsKey(request.Key) && !SynonymData.ContainsKey(request.Value))
+            {
+                //contains key does not contain value case
+                ExpandHashsets(request.Key, request.Value);
+            }
+            else if (SynonymData.ContainsKey(request.Value) && !SynonymData.ContainsKey(request.Key))
+            {
+                //contains value does not contain key case
+                ExpandHashsets(request.Value, request.Key);
+            }
+            else
+            {
+                //completely new sets case
+                SynonymData.Add(request.Key, new HashSet<string> { request.Value });
+                SynonymData.Add(request.Value, new HashSet<string> { request.Key });
             }
 
+            return new Response { Message = "Synonym successfully added!" };
         }
         public HashSet<string> GetSynonymList(string key)
         {
-            if (SynonymData.ContainsKey(key))
-                return SynonymData[key];
+            if (SynonymData.TryGetValue(key, out HashSet<string>? value))
+                return value;
             
-            return new HashSet<string>(); // Return null if dictionary does not contain the key
+            return []; // Return [] if dictionary does not contain the key
         }
         public bool DeleteSynonym(Synonym request)
         {
